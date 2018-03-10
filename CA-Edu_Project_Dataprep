@@ -1,0 +1,582 @@
+*******************************************************************************;
+**************** 80-character banner for column width reference ***************;
+* (set window width to banner width to calibrate line length to 80 characters *;
+*******************************************************************************;
+
+*
+[Dataset 1 Name] grad1415
+
+[Dataset Description] Graduates by Ethnicity and School, 2014-15
+
+[Experimental Unit Description] Data for graduates of high schools in California
+in AY2014-2015 by ethnicity and school
+
+[Number of Observations] 2490
+
+[Number of Features] 15
+
+[Data Source] http://dq.cde.ca.gov/dataquest/dlfile/dlfile.aspx?cLevel=School&cYear=2014-15&cCat=GradEth&cPage=filesgrad.asp,
+downloaded and then converted to xls format
+
+[Data Dictionary] https://www.cde.ca.gov/ds/sd/sd/fsgrad09.asp
+
+[Unique ID Schema] Column "CDS_CODE" uniquely identifies each school in
+California that produced graduates in 2015.
+
+--
+
+[Dataset 2 Name] grad1516
+
+[Dataset Description] Graduates by Ethnicity and School, 2015-16
+
+[Experimental Unit Description] Data for graduates of high schools in California
+in AY2015-2016 by ethnicity and school
+
+[Number of Observations] 2521
+
+[Number of Features] 15
+
+[Data Source] http://dq.cde.ca.gov/dataquest/dlfile/dlfile.aspx?cLevel=School&cYear=2015-16&cCat=GradEth&cPage=filesgrad.asp,
+downloaded and then converted to xls format
+
+[Data Dictionary] https://www.cde.ca.gov/ds/sd/sd/fsgrad09.asp
+
+[Unique ID Schema] Column "CDS_CODE" uniquely identifies each school in
+California that produced graduates in 2016.
+
+--
+
+[Dataset 3 Name] dropouts1415
+
+[Dataset Description] Dropouts by Race & Gender, 2014-2015
+
+[Experimental Unit Description] Data for dropouts from junior high and high
+schools in California in AY2014-2015 by race, gender, and school
+
+[Number of Observations] 58,875
+
+[Number of Features] 20
+
+[Data Source] http://dq.cde.ca.gov/dataquest/dlfile/dlfile.aspx?cLevel=School&cYear=2014-15&cCat=Dropouts&cPage=filesdropouts,
+downloaded and then converted to xls format
+
+[Data Dictionary] https://www.cde.ca.gov/ds/sd/sd/fsdropouts.asp
+
+[Unique ID Schema] The CDS_CODE, ETHNIC, and GENDER columns comprise a composite
+ key that uniquely identifies groups by school, ethnic background, and gender.
+
+--
+
+[Dataset 4 Name] dropouts1516
+
+[Dataset Description] Dropouts by Race & Gender, 2015-2016
+
+[Experimental Unit Description] Data for dropouts from junior high and high
+schools in California in AY2015-2016 by race, gender, and school
+
+[Number of Observations] 59,316
+
+[Number of Features] 20
+
+[Data Source] http://dq.cde.ca.gov/dataquest/dlfile/dlfile.aspx?cLevel=School&cYear=2015-16&cCat=Dropouts&cPage=filesdropouts,
+downloaded and then converted to xls format
+
+[Data Dictionary] https://www.cde.ca.gov/ds/sd/sd/fsdropouts.asp
+
+[Unique ID Schema] The CDS_CODE, ETHNIC, and GENDER columns comprise a composite
+key that uniquely identifies groups by school, ethnic background, and gender.
+;
+
+* environmental setup;
+
+* create output formats;
+
+* setup environmental parameters;
+
+%let inputDataset1URL =
+https://github.com/stat6250/team-5_project2/blob/master/data/grad1415.xls?raw=true
+;
+%let inputDataset1Type = xls;
+%let inputDataset1DSN = grad1415_raw;
+
+%let inputDataset2URL =
+https://github.com/stat6250/team-5_project2/blob/master/data/grad1516.xls?raw=true
+;
+%let inputDataset2Type = xls;
+%let inputDataset2DSN = grad1516_raw;
+
+%let inputDataset3URL =
+https://github.com/stat6250/team-5_project2/blob/master/data/dropouts1415.xls?raw=true
+;
+%let inputDataset3Type = xls;
+%let inputDataset3DSN = dropouts1415_raw;
+
+%let inputDataset4URL =
+https://github.com/stat6250/team-5_project2/blob/master/data/dropouts1516.xls?raw=true
+;
+%let inputDataset4Type = xls;
+%let inputDataset4DSN = dropouts1516_raw;
+
+
+* load raw datasets over the wire, if they doesn't already exist;
+%macro loadDataIfNotAlreadyAvailable(dsn,url,filetype);
+    %put &=dsn;
+    %put &=url;
+    %put &=filetype;
+    %if
+        %sysfunc(exist(&dsn.)) = 0
+    %then
+        %do;
+            %put Loading dataset &dsn. over the wire now...;
+            filename tempfile "%sysfunc(getoption(work))/tempfile.xlsx";
+            proc http
+                method="get"
+                url="&url."
+                out=tempfile
+                ;
+            run;
+            proc import
+                file=tempfile
+                out=&dsn.
+                dbms=&filetype.;
+            run;
+            filename tempfile clear;
+        %end;
+    %else
+        %do;
+            %put Dataset &dsn. already exists. Please delete and try again.;
+        %end;
+%mend;
+%loadDataIfNotAlreadyAvailable(
+    &inputDataset1DSN.,
+    &inputDataset1URL.,
+    &inputDataset1Type.
+)
+%loadDataIfNotAlreadyAvailable(
+    &inputDataset2DSN.,
+    &inputDataset2URL.,
+    &inputDataset2Type.
+)
+%loadDataIfNotAlreadyAvailable(
+    &inputDataset3DSN.,
+    &inputDataset3URL.,
+    &inputDataset3Type.
+)
+%loadDataIfNotAlreadyAvailable(
+    &inputDataset4DSN.,
+    &inputDataset4URL.,
+    &inputDataset4Type.
+)
+
+
+* sort and check raw data sets for duplicates with respect to primary keys,
+  data contains no blank rows so no steps to remove blanks is needed;
+proc sort
+        nodupkey
+        data=grad1415_raw
+        out=grad1415_raw_sorted(where=(not(missing(CDS_CODE))))
+    ;
+    by
+        CDS_CODE
+    ;
+run;
+proc sort
+        nodupkey
+        data=grad1516_raw
+        out=grad1516_raw_sorted(where=(not(missing(CDS_CODE))))
+    ;
+    by
+        CDS_CODE
+    ;
+run;
+proc sort
+        nodupkey
+        data=dropouts1415_raw
+        out=dropouts1415_raw_sorted(where=(not(missing(CDS_CODE))))
+    ;
+    by
+        CDS_CODE
+        ETHNIC
+        descending GENDER
+    ;
+run;
+proc sort
+        nodupkey
+        data=dropouts1516_raw
+        out=dropouts1516_raw_sorted(where=(not(missing(CDS_CODE))))
+    ;
+    by
+        CDS_CODE
+        ETHNIC
+        descending GENDER
+    ;
+run;
+
+*
+Use PROC MEANS to generate a data set containing the total number of graduates
+from each county in AY2014-2015 (TOTAL_sum), as well as the total number of
+schools in each county (_FREQ_)
+;
+proc means
+        noprint
+        sum
+        data = grad1415_raw_sorted
+        nonobs
+    ;
+    var TOTAL
+    ;
+    by COUNTY
+    ;
+    output
+        out=grad1415_means
+        sum(TOTAL) = TOTAL_sum
+    ;
+run;
+
+* Sort the data set created in the previous step by county;
+proc sort data=grad1415_means out=grad1415_means_sorted;
+    by COUNTY;
+run;
+
+*
+Merge the data set containing graduations by school and total graduations by
+county in AY2014-2015 so that each row in the new data set contains graduation
+statistics for an individual school as well as the total number of graduations
+in the county in which that school is located
+;
+data grad1415_final;
+    merge
+        grad1415_raw_sorted
+        grad1415_means_sorted
+    ;
+    by COUNTY;
+run;
+
+*
+Use PROC MEANS to generate a data set containing the total number of graduates
+from each county in AY2015-2016 (TOTAL_sum), as well as the total number of
+schools in each county (_FREQ_)
+;
+proc means
+        noprint
+        sum
+        data = grad1516_raw_sorted
+        nonobs
+    ;
+    var TOTAL
+    ;
+    by COUNTY
+    ;
+    output
+        out=grad1516_means
+        sum(TOTAL) = TOTAL_sum
+    ;
+run;
+
+* Sort the data set created in the previous step by county;
+proc sort data=grad1516_means out=grad1516_means_sorted;
+    by COUNTY;
+run;
+
+*
+Merge the data set containing graduations by school and total graduations by
+county in AY2015-2016 so that each row in the new data set contains graduation
+statistics for an individual school as well as the total number of graduations
+in the county in which that school is located
+;
+data grad1516_final;
+    merge
+        grad1516_raw_sorted
+        grad1516_means_sorted
+    ;
+    by COUNTY;
+run;
+
+*
+Vertically join the two final data sets containing graduation records for use
+in analysis steps
+;
+data grad_all;
+    set
+        grad1415_final
+        grad1516_final
+    ;
+run;
+
+*
+Combine data sets for dropout and graduation data for AY2014-2015 horizontally
+;
+data all1415;
+    merge
+        dropouts1415_raw_sorted
+        grad1415_final;
+    by CDS_CODE;
+run;
+
+*
+Combine data sets for dropout and graduation data for AY2015-2016 horizontally
+;
+data all1516;
+    merge
+        dropouts1516_raw_sorted
+        grad1516_final;
+    by CDS_CODE;
+run;
+
+*
+Finally, combine all merged data into a single data set containing dropout and
+graduation data for both years
+;
+data grad_drop_merged;
+    set all1415 all1516;
+run;
+
+*
+Sort the resulting combined data set by year, CDS code, ethnic code, and gender,
+excluding any records in which the CDS code is missing
+;
+proc sort
+        nodupkey
+        data=grad_drop_merged
+        out=grad_drop_merged_sorted(where=(not(missing(CDS_CODE))))
+    ;
+    by
+        YEAR
+        CDS_CODE
+        ETHNIC
+        descending GENDER
+    ;
+run;
+
+
+*Begin data steps for WH analysis file;
+
+*
+Using proc sql, i calculated the sum of the column AFRICAN_AM and WHITE
+then also calculate their percentage by using the total graduates number 
+from GRAD1415_MEANS_SORTED data set.  I also set the percentage to have
+2 decimal places.
+; 
+proc sql;
+    create table african_white_grad_1415 as
+        select 
+            (sum(AFRICAN_AM)) as african_grad_1415 
+                label = "Total African American Grad 14-15", 
+            (sum(WHITE)) as white_grad_1415
+                label = "Total White Grad 14-15", 
+            (sum(AFRICAN_AM)/(select (sum(TOTAL_sum)) 
+                from grad1415_means_sorted)) 
+                as african_grad_per_1415
+                label = "African American Grad % 14- 15" 
+                    format = percent7.1,
+            (sum(WHITE)/(select (sum(TOTAL_sum)) 
+                from grad1415_means_sorted)) 
+                as white_grad_per_1415
+                label = "White Grad % 14-15" 
+                    format = percent7.1
+    from
+        grad1415_final
+    ;    
+quit;
+proc sql;
+    create table african_white_grad_1516 as
+        select 
+            (sum(AFRICAN_AM)) as african_grad_1516
+                label = "Total African American Grad 15-16", 
+            (sum(WHITE)) as white_grad_1516
+                label = "Total White Grad 15-16", 
+            (sum(AFRICAN_AM)/(select (sum(TOTAL_sum)) 
+                from grad1516_means_sorted)) 
+                as african_grad_per_1516
+                label = "African American Grad % 15-16" 
+                    format = percent7.1,
+            (sum(WHITE)/(select (sum(TOTAL_sum)) 
+                from grad1516_means_sorted)) 
+                as white_grad_per_1516
+                label = "White Grad % 15-16" 
+                    format = percent7.1
+    from
+        grad1516_final
+    ;    
+quit;
+data african_white_grad_1416;
+    merge
+        african_white_grad_1415
+        african_white_grad_1516
+    ;
+run;
+
+*
+Use PROC MEANS to generate a data set containing the total number of graduates
+from each county in AY2014-2015 (TOTAL_sum), as well as the total number of
+schools in each county (_FREQ_)
+;
+proc means
+        noprint
+        sum
+        data = grad1415_raw_sorted
+        nonobs
+    ;
+    var AFRICAN_AM WHITE
+    ;
+    by COUNTY
+    ;
+    output
+        out=WH_grad1415_means
+        sum(AFRICAN_AM) = TOTAL_AFRICAN_AM
+        sum(WHITE) = TOTAL_WHITE
+    ;
+run;
+
+* Sort the data set created in the previous step by county;
+proc sort data=WH_grad1415_means out=WH_grad1415_means_sorted;
+    by COUNTY;
+run;
+
+*
+Use PROC MEANS to generate a data set containing the total number of graduates
+from each county in AY2014-2015 (TOTAL_sum), as well as the total number of
+schools in each county (_FREQ_)
+;
+proc means
+        noprint
+        sum
+        data = grad1516_raw_sorted
+        nonobs
+    ;
+    var AFRICAN_AM WHITE
+    ;
+    by COUNTY
+    ;
+    output
+        out=WH_grad1516_means
+        sum(AFRICAN_AM) = TOTAL_AFRICAN_AM
+        sum(WHITE) = TOTAL_WHITE
+    ;
+run;
+
+* Sort the data set created in the previous step by county;
+proc sort data=WH_grad1516_means out=WH_grad1516_means_sorted;
+    by COUNTY;
+run;
+
+proc sql outobs=5;
+    create table WH_grad1415_top5 as
+    select
+        *
+    from
+        WH_grad1415_means_sorted
+    order by
+        _FREQ_ desc
+    ;
+quit;
+
+proc sql outobs=5;
+    create table WH_grad1516_top5 as
+    select
+        *
+    from
+        WH_grad1516_means_sorted
+    order by
+        _FREQ_ desc
+    ;
+quit;
+
+*
+By using proc sql, i created a new table called E12B_1415 to contain the
+total number of Grade 12 boys enrolled in the year 2014-2015.  I calculated
+the total number of boy by using the sum formula from the dataset 
+GRAD_DROP_MERGED_SORTED and set a condition where Gender is M and the year 
+is 1415.
+;
+proc sql;
+    create table E7_12B_1415 as
+        select
+            sum(E7) as toteg7_1415 
+                label = "Total Number of Grade 7 Boy Enrolled in 2014-2015",
+            sum(E8) as toteg8_1415 
+                label = "Total Number of Grade 8 Boy Enrolled in 2014-2015",
+            sum(E9) as toteg9_1415 
+                label = "Total Number of Grade 9 Boy Enrolled in 2014-2015",    
+            sum(E10) as toteg10_1415 
+                label = "Total Number of Grade 10 Boy Enrolled in 2014-2015",
+            sum(E11) as toteg11_1415 
+                label = "Total Number of Grade 11 Boy Enrolled in 2014-2015",    
+            sum(E12) as toteg12_1415 
+                label = "Total Number of Grade 12 Boy Enrolled in 2014-2015"    
+        from
+            grad_drop_merged_sorted
+        where
+            GENDER='M' and
+            YEAR = 1415
+        ;
+quit;
+
+*
+By using proc sql, i created a new table called E12B_1516 to contain the
+total number of Grade 12 boys enrolled in the year 2015-2016.  I calculated
+the total number of boy by using the sum formula from the dataset 
+GRAD_DROP_MERGED_SORTED and set a condition where Gender is M and the year 
+is 1516.
+;
+proc sql;
+    create table E7_12B_1516 as
+        select 
+            sum(E7) as toteg7_1516 
+                label = "Total Number of Grade 7 Boy Enrolled in 2015-2016",
+            sum(E8) as toteg8_1516 
+                label = "Total Number of Grade 8 Boy Enrolled in 2015-2016",  
+            sum(E9) as toteg9_1516 
+                label = "Total Number of Grade 9 Boy Enrolled in 2015-2016", 
+            sum(E10) as toteg10_1516 
+                label = "Total Number of Grade 10 Boy Enrolled in 2015-2016", 
+            sum(E11) as toteg11_1516 
+                label = "Total Number of Grade 11 Boy Enrolled in 2015-2016", 
+            sum(E12) as toteg12_1516 
+                label = "Total Number of Grade 12 Boy Enrolled in 2015-2016"     
+        from 
+            grad_drop_merged_sorted
+        where 
+            GENDER = 'M' and 
+            YEAR = 1516
+        ;
+quit;
+
+*
+By using proc sql, I calculated the percent change for Grade 12 boys
+enrollment using the simple rate change forumla.  I selected the total
+number of Grade 12 boys enrolled from the 2 datasets which contain the
+total number of boys enrolled in each year. I also formatted the percentage
+to be 2 decimal places.
+;
+proc sql;
+    create table WH_g7_12dechange as
+    select
+        (((select toteg7_1516 From E7_12B_1516)-toteg7_1415)/toteg7_1415) 
+            as E7B_change 
+            label = "%Change of Grade 7 Boys' Enrollment from 2014-2016" 
+                format=percent7.2,
+        (((select toteg8_1516 From E7_12B_1516)-toteg8_1415)/toteg8_1415) 
+            as E8B_change 
+            label = "%Change of Grade 8 Boys' Enrollment from 2014-2016" 
+                format=percent7.2,
+        (((select toteg9_1516 From E7_12B_1516)-toteg9_1415)/toteg9_1415) 
+            as E9B_change 
+            label = "%Change of Grade 9 Boys' Enrollment from 2014-2016" 
+                format=percent7.2,
+        (((select toteg10_1516 From E7_12B_1516)-toteg10_1415)/toteg10_1415) 
+            as E10B_change 
+            label = "%Change of Grade 10 Boys' Enrollment from 2014-2016" 
+                format=percent7.2,
+        (((select toteg11_1516 From E7_12B_1516)-toteg11_1415)/toteg11_1415)
+            as E11B_change 
+            label = "%Change of Grade 11 Boys' Enrollment from 2014-2016" 
+                format=percent7.2,
+        (((select toteg12_1516 From E7_12B_1516)-toteg12_1415)/toteg12_1415)
+            as E12B_change 
+            label = "%Change of Grade 12 Boys' Enrollment from 2014-2016" 
+                format=percent7.2        
+    from 
+        E7_12B_1415;
+quit;
+*End data steps for WH analysis file;
